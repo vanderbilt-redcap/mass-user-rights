@@ -1,0 +1,56 @@
+{
+  "name": "Mass Assign User Rights",
+
+  "namespace": "Vanderbilt\\MassUserRightsExternalModule",
+
+  "authors": [
+    {
+      "name": "Ryan Moore",
+      "email": "datacore@vanderbilt.edu",
+      "institution": "Vanderbilt University Medical Center"
+    }
+  ],
+
+  "description": "Dashboard to both view a user's roles for various projects, but to also assign a user to a role across multiple projects.",
+
+  "permissions": [
+    "select_data"
+  ],
+
+  "links": {
+    "project": [
+      {
+        "name": "View/Edit User Roles",
+        "icon": "report",
+        "url": "assign_roles.php",
+        "access": "design"
+      }
+    ]
+  },
+
+  "no-auth-pages":[""],
+
+  "project-settings": [
+    {
+      "key": "role-projects",
+      "name": "Project(s) That Will Be Included in User Role Functions",
+      "type":"project-id",
+      "repeatable": true
+    },
+    {
+      "key": "field-projects",
+      "name": "Fields That Can Indicate Extra Project IDs to Include in Reports",
+      "type":"field-list",
+      "repeatable": true
+    }
+  ],
+
+  "system-settings": [
+  ],
+  "compatibility": {
+    "php-version-min": "5.5.0",
+    "php-version-max": "",
+    "redcap-version-min": "8.0.0",
+    "redcap-version-max": ""
+  }
+}
