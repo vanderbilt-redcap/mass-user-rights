@@ -148,7 +148,7 @@ class MassUserRightsExternalModule extends AbstractExternalModule
 		return null;
 	}
 
-	function getUserList($project_id) {
+	/*function getUserList($project_id) {
 		$userlist = array();
 		$sql = "SELECT d2.username,CONCAT(d2.user_firstname, ' ', d2.user_lastname) as name
 		FROM redcap_user_rights d
@@ -160,5 +160,5 @@ class MassUserRightsExternalModule extends AbstractExternalModule
 			$userlist[$row['username']] = $row['name'];
 		}
 		return $userlist;
-	}
+	}*/
 }

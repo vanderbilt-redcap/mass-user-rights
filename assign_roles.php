@@ -30,7 +30,7 @@ if ($projectID != "") {
 	/*$HtmlPage = new HtmlPage();
 	$HtmlPage->PrintHeaderExt();*/
 
-	$userList = getUserList($projectID);
+	$userList = getUserList($projectListing);
 
 	//$dagList = getDAGList($projectID);
 	//$roleList = getRoleList($projectID);
