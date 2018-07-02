@@ -55,8 +55,7 @@ if ($projectID != "") {
 	echo "<table class='table table-bordered'><tr><th>Select a User to Apply Rights</th></tr>
     <form action='".$module->getUrl('assign_roles.php')."' method='POST'>
         <tr><td>
-            <input type='radio' id='user_radio' name='assign_type' ".($_POST['assign_type'] == "individual" || $_POST['assign_type'] == "" ? "checked": "")." value='individual' onclick='showHide(\"user_div\",this,\"individual\",\"group_div\");'>Individual User
-            <input type='radio' id='group_radio' name='assign_type' ".($_POST['assign_type'] == "multiple" || $_POST['select_group'] != "" ? "checked" : "")." value='multiple' onclick='showHide(\"group_div\",this,\"multiple\",\"user_div\");'>Multiple Users
+            <input type='radio' id='user_radio' name='assign_type' ".($_POST['assign_type'] == "individual" || $_POST['assign_type'] == "" ? "checked": "")." value='individual'>Individual User
         </td></tr><tr><td>
         <div id='user_div' ".($_POST['assign_type'] != "individual" && $_POST['assign_type'] != "" ? "style='display:none;'": "").">
         <select name='select_user'>";
@@ -66,22 +65,6 @@ if ($projectID != "") {
 	echo "</select>
 		    <input type='submit' value='Load User' name='load_user'/>
 		</div>
-		<div id='group_div' style='display:none;'>
-		    <select name='select_group' onchange='showHide(\"new_group\",this,\"new\");'>
-		        <option></option>
-		        <option value='new'>New Group</option>";
-	        $groupCount = 0;
-	        foreach ($groupList as $groupName) {
-	            echo "<option value='$groupName' ".(db_real_escape_string($_POST['select_group']) == $groupName || db_real_escape_string($_POST['new_group']) == $groupName ? "selected" : "").">$groupName</option>";
-	            $groupCount++;
-            }
-            if ($_POST['new_group'] != "") {
-				echo "<option value='".db_real_escape_string($_POST['new_group'])."' selected>".db_real_escape_string($_POST['new_group'])."</option>";
-            }
-            echo "</select>
-            <input type='text' id='new_group' name='new_group' style='display:none;'/>
-		    <input type='submit' value='Load Custom Group' name='load_group'/>
-        </div>
 	</td></tr></form></table>";
 
 	if (isset($_POST['update_rights']) && $_POST['update_rights'] != "") {
@@ -89,11 +72,6 @@ if ($projectID != "") {
 
 		if (is_array($_POST['select_user'])) {
 			$userIDs = $_POST['select_user'];
-			echo "<script>
-            $(document).ready(function() {
-            	$('#group_radio').trigger('onclick');
-            });";
-			echo "</script>";
 		}
 		else {
 			$userIDs = array($_POST['select_user']);
@@ -212,32 +190,6 @@ if ($projectID != "") {
              </script>";
         }
 	}
-	elseif (isset($_POST['load_group']) && $_POST['select_group'] != "") {
-	    $usersGroup = array();
-	    if ($_POST['new_group'] != "") {
-	        $postGroup = db_real_escape_string($_POST['new_group']);
-        }
-        else {
-	        $postGroup = $_POST['select_group'];
-			$postGroupData = \REDCap::getData($userProjectID, 'array', "", array(), $event_id, array(), false, false, false, "([" . $module->getProjectSetting('project-field') . "] = '$projectID' and [" . $module->getProjectSetting('group-field') . "] = '".db_real_escape_string($_POST['select_group'])."')");
-			foreach ($postGroupData as $recordID => $recordData) {
-				$customRights = json_decode($recordData[$event_id][$module->getProjectSetting("access-field")],true);
-				$dagAssigns = explode(",",$recordData[$event_id][$module->getProjectSetting("dag-field")]);
-				$usersGroup[$recordData[$event_id][$module->getProjectSetting("user-field")]] = $recordData[$event_id][$module->getProjectSetting("user-field")];
-			}
-        }
-
-        $userList = array_merge(array_flip($usersGroup),$userList);
-	    $hiddenFields = array('new_group'=>$_POST['new_group'],'select_group'=>($_POST['select_group'] != "" ? $_POST['select_group'] : $_POST['new_group']));
-	    drawRightsTables($hiddenFields,$module->getUrl('assign_roles.php'));
-
-	    echo "<script>
-            $(document).ready(function() {
-            	$('#group_radio').trigger('onclick');
-            	".(!empty($customRights) || !empty($dagAssigns) ? generatePrefill($userID) : "")."
-            });";
-	    echo "</script>";
-    }
 }
 
 function drawRightsTables($hiddenFields,$destination)
