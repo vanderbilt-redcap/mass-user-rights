@@ -135,6 +135,19 @@ if ($projectID != "") {
 
 		loadUser($userID);
     }
+    elseif (isset($_POST['submit_suggest']) && $_POST['submit_suggest'] != "" && $_POST['select_user'] != "") {
+		$userID = db_real_escape_string($_POST['select_user']);
+		$accessProjectID = $module->getProjectSetting('access-project');
+		$roleProjectID = $module->getProjectSetting('role-project');
+		$suggestedAssignments = getSuggestedAssignments($userID,$accessProjectID,$roleProjectID);
+		foreach ($suggestedAssignments['roles'] as $projectID => $roleID) {
+		    updateUserRole(array($userID),$roleID,$projectID);
+        }
+        foreach ($suggestedAssignments['dags'] as $projectID => $dagID) {
+		    updateUserDAG(array($userID),$dagID,$projectID);
+        }
+		loadUser($userID);
+    }
 }
 
 function loadUser($userID) {
