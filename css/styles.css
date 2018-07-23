@@ -101,12 +101,16 @@ body {
 th {
     font-weight: bold !important;
     background-color: #1c94c4;
+	text-align: center !important;
 }
 td a {
     text-decoration: underline !important;
     font-size: 16px !important;
 }
 
+table.table td, table.table th {
+	text-align:center;
+}
 .dagHeader {
 	background-color:#CE8483;
 }

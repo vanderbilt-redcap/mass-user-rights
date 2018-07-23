@@ -19,18 +19,6 @@ function getUserList($projectList) {
 	return $userlist;
 }
 
-/*function getDAGList($project_id) {
-	$dagList = array();
-	$sql = "SELECT group_id, group_name
-		FROM redcap_data_access_groups
-		WHERE project_id=$project_id";
-	$result = db_query($sql);
-	while ($row = db_fetch_assoc($result)) {
-		$dagList[$row['group_id']] = $row['group_name'];
-	}
-	return $dagList;
-}*/
-
 function getRoleList($project_id) {
 	$roleList = array();
 	$sql = "SELECT role_id, role_name
@@ -41,6 +29,18 @@ function getRoleList($project_id) {
 		$roleList[$row['role_id']] = $row['role_name'];
 	}
 	return $roleList;
+}
+
+function getDAGList($project_id) {
+	$dagList = array();
+	$sql = "SELECT group_id,group_name
+		FROM redcap_data_access_groups
+		WHERE project_id=$project_id";
+	$result = db_query($sql);
+	while ($row = db_fetch_assoc($result)) {
+		$dagList[$row['group_id']] = $row['group_name'];
+	}
+	return $dagList;
 }
 
 function getRecordList($project_id,$recordField) {
@@ -80,20 +80,26 @@ function processDataEntry($dataentry) {
 	return $accessByRole;
 }
 
-function generatePrefill($data) {
+function generatePrefill($data,$suggestedAssignments) {
 	$returnString = "";
 
-	foreach ($data as $index => $rightsData) {
-		$returnString .= "$('#roles_addbutton').click();
-				var rowCount = $('.add_new_right_table').length;
-				$('#add_new_right_role_'+rowCount).val('" . $index . "').trigger('onchange').ready(function() {setTimeout(function() {\n";
-				foreach ($rightsData as $projectID => $roledID) {
-					$returnString .= "$(\"#projectid_\"+rowCount+\"_$projectID\").prop(\"checked\",true);\n";
-				}
-				$returnString .= "},350);});";
-		/*if ($rightsData['exempt'] == "on") {
-		    $returnString .= "$('#exempt_check_'+rowCount).prop('checked',true);";
-        }*/
+	foreach ($data as $project_id => $rightsData) {
+		if ($rightsData['dag'] != "") {
+			$returnString .= "$('#dag_select_$project_id option[value=".$rightsData['dag']."]').attr('selected','selected').change();";
+		}
+		if ($rightsData['role'] != "") {
+			$returnString .= "$('#role_select_$project_id option[value=".$rightsData['role']."]').attr('selected','selected').change();";
+		}
+		if ($suggestedAssignments['roles'][$project_id] != "") {
+			$bgColor = getBackgroundColor($rightsData['role'],$suggestedAssignments['roles'][$project_id]);
+			$roleName = getRoleName($suggestedAssignments['roles'][$project_id]);
+			$returnString .= "$('#role_select_$project_id').parent().css('background-color','$bgColor').append('Suggested: $roleName');";
+		}
+		if ($suggestedAssignments['dags'][$project_id] != "") {
+			$bgColor = getBackgroundColor($rightsData['dag'],$suggestedAssignments['dags'][$project_id]);
+			$dagName = getDAGName($suggestedAssignments['dags'][$project_id]);
+			$returnString .= "$('#dag_select_$project_id').parent().css('background-color','$bgColor').append('Suggested: $dagName');";
+		}
 	}
 	/*foreach ($dags as $dagIndex => $dagID) {
 		$returnString .= "$('input[id^=\"dagid_$dagID\"][value=\"".$dagID."\"]').prop('checked',true);";
@@ -101,11 +107,70 @@ function generatePrefill($data) {
 	return $returnString;
 }
 
+function getBackgroundColor($userAssignment,$suggestedAssignment) {
+	$color = "green";
+	if ($userAssignment == "" && $suggestedAssignment != "") {
+		$color = "red";
+	}
+	elseif ($userAssignment != "" && $suggestedAssignment != "" && $userAssignment != $suggestedAssignment) {
+		$color = "yellow";
+	}
+	return $color;
+}
+
+function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
+	$returnArray = array();
+	$sql = "SELECT d2.value
+			FROM redcap_data d 
+			JOIN redcap_data d2
+				ON d.project_id=d2.project_id AND d.event_id=d2.event_id AND d.record=d2.record AND d2.field_name='role'
+			WHERE d.project_id=$accessProjectID
+			AND d.field_name='user_name'
+			AND d.value='$userID'
+			LIMIT 1";
+	$roleID = db_result(db_query($sql),0);
+	//TODO Need to include checks at some point that the person is not expired and has an active role in the repeating instrument
+	if ($roleID != "") {
+		$roleData = array();
+		$sql2 = "SELECT field_name,value
+		FROM redcap_data
+		WHERE project_id=$roleProjectID
+		AND record='$roleID'";
+		$result = db_query($sql2);
+		while ($row = db_fetch_assoc($result)) {
+			$roleData[$row['field_name']] = $row['value'];
+		}
+		if ($roleData['role_active'] == "1") {
+			$returnArray['roles'] = json_decode($roleData['suggested_roles'],true);
+			$returnArray['dags'] = json_decode($roleData['suggested_dags'],true);
+		}
+	}
+	return $returnArray;
+}
+
 function getProjectName($projectID) {
 	$sql = "SELECT app_title 
             FROM redcap_projects
             WHERE project_id=$projectID";
 	return db_result(db_query($sql),0);
+}
+
+function getRoleName($roleID) {
+	$returnString = "";
+	$sql = "SELECT role_name
+	FROM redcap_user_roles
+	WHERE role_id='$roleID'";
+	$returnString = db_result(db_query($sql),0);
+	return $returnString;
+}
+
+function getDAGName($dagID) {
+	$returnString = "";
+	$sql = "SELECT group_name
+	FROM redcap_data_access_groups
+	WHERE group_id='$dagID'";
+	$returnString = db_result(db_query($sql),0);
+	return $returnString;
 }
 
 function getRolesWithName($roleID) {
@@ -121,37 +186,66 @@ function getRolesWithName($roleID) {
 }
 
 function updateUserRole($userIDs,$roleID,$projectID) {
-	$roleInfo = array();
-	$sql = "SELECT * FROM redcap_user_roles WHERE project_id=$projectID AND role_id=$roleID";
-	$roleInfo = db_fetch_assoc(db_query($sql),0);
-
-	$updateFields = "";
-	$insertFields = "";
-	$insertColumns = "";
-	$firstRow = true;
-	foreach ($roleInfo as $column => $value) {
-		if ($column == "role_name") continue;
-		if ($updateFields != "") {
-			$updateFields .= ",";
-		}
-		if (!$firstRow) {
-			$insertFields .= ",";
-		}
-		if ($insertColumns != "") {
-			$insertColumns .= ",";
-		}
-		$updateFields .= $column."='".$value."'";
-		$insertFields .= "'".$value."'";
-		$insertColumns .= $column;
-		$firstRow = false;
-	}
-
 	$returnArray = array();
-	foreach ($userIDs as $userID) {
-		$insertsql = "INSERT INTO redcap_user_rights ($insertColumns,username)
+	if ($projectID != "" && is_numeric($projectID)) {
+		if ($roleID != "" && is_numeric($roleID)) {
+			$sql = "SELECT * FROM redcap_user_roles WHERE project_id='".db_real_escape_string($projectID)."' AND role_id='".db_real_escape_string($roleID)."'";
+			$roleInfo = db_fetch_assoc(db_query($sql), 0);
+
+			$updateFields = "";
+			$insertFields = "";
+			$insertColumns = "";
+			$firstRow = true;
+			foreach ($roleInfo as $column => $value) {
+				if ($column == "role_name") continue;
+				if ($updateFields != "") {
+					$updateFields .= ",";
+				}
+				if (!$firstRow) {
+					$insertFields .= ",";
+				}
+				if ($insertColumns != "") {
+					$insertColumns .= ",";
+				}
+				$updateFields .= $column . "='" . $value . "'";
+				$insertFields .= "'" . $value . "'";
+				$insertColumns .= $column;
+				$firstRow = false;
+			}
+		} else {
+			$insertColumns = "role_id,project_id";
+			$insertFields = "NULL,'".db_real_escape_string($projectID)."'";
+			$updateFields = "role_id = NULL";
+		}
+
+		foreach ($userIDs as $userID) {
+			$insertsql = "INSERT INTO redcap_user_rights ($insertColumns,username)
+			VALUES ($insertFields,'" . db_real_escape_string($userID) . "')
+			ON DUPLICATE KEY UPDATE $updateFields";
+			//echo "$insertsql<br/>";
+			$returnArray[] = db_query($insertsql);
+		}
+	}
+	return $returnArray;
+}
+
+function updateUserDAG($userIDs,$dagID,$projectID) {
+	$returnArray = array();
+	if ($projectID != "" && is_numeric($projectID)) {
+		$dagValue = "NULL";
+		if ($dagID != "" && is_numeric($dagID)) {
+			$dagValue = "'".db_real_escape_string($dagID)."'";
+		}
+		$insertColumns = "group_id,project_id";
+		$insertFields = "$dagValue,'".db_real_escape_string($projectID)."'";
+		$updateFields = "group_id = $dagValue";
+
+		foreach ($userIDs as $userID) {
+			$insertsql = "INSERT INTO redcap_user_rights ($insertColumns,username)
 			VALUES ($insertFields,'$userID')
 			ON DUPLICATE KEY UPDATE $updateFields";
-		$returnArray[] = db_query($insertsql);
+			$returnArray[] = db_query($insertsql);
+		}
 	}
 	return $returnArray;
 }
@@ -195,22 +289,15 @@ function userAssignedProjects($userID) {
 	global $projectListing;
 	$returnArray = array();
 	$roleNamesFound = array();
-	$sql = "SELECT d.role_id,d2.role_name
-			FROM redcap_user_rights d
-			LEFT JOIN redcap_user_roles d2
-				ON d.project_id=d2.project_id AND d.role_id=d2.role_id
-			WHERE d.username='$userID'
-			AND d.project_id IN ('".implode("','",$projectListing)."')";
+	$sql = "SELECT project_id,role_id,group_id
+			FROM redcap_user_rights
+			WHERE username='$userID'
+			AND project_id IN ('".implode("','",$projectListing)."')";
 	//echo "$sql<br/>";
 	$result = db_query($sql);
 	while ($row = db_fetch_assoc($result)) {
-		$currentRoleName = $row['role_name'];
-		$currentRoleID = $row['role_id'];
-		if (!in_array($currentRoleName,$roleNamesFound) && $currentRoleName != "" && $currentRoleID != "") {
-			$roleNamesFound[] = $currentRoleName;
-			$currentRolesWithName = getRolesWithName($currentRoleID);
-			$returnArray[$currentRoleID] = $currentRolesWithName;
-		}
+		$returnArray[$row['project_id']]['role'] = $row['role_id'];
+		$returnArray[$row['project_id']]['dag'] = $row['group_id'];
 	}
 	return $returnArray;
 }
