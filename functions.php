@@ -6,13 +6,14 @@
  * Time: 4:23 PM
  */
 function getUserList($projectList) {
+    global $module;
 	$userlist = array();
 	$sql = "SELECT DISTINCT(d2.username),CONCAT(d2.user_firstname, ' ', d2.user_lastname) as name
 		FROM redcap_user_rights d
 		JOIN redcap_user_information d2
 			ON d.username = d2.username
 		WHERE d.project_id IN (".implode(",",$projectList).")";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
 		$userlist[$row['username']] = $row['name'];
 	}
@@ -20,11 +21,12 @@ function getUserList($projectList) {
 }
 
 function getRoleList($project_id) {
+    global $module;
 	$roleList = array();
 	$sql = "SELECT role_id, role_name
 		FROM redcap_user_roles
 		WHERE project_id=$project_id";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
 		$roleList[$row['role_id']] = $row['role_name'];
 	}
@@ -32,11 +34,12 @@ function getRoleList($project_id) {
 }
 
 function getDAGList($project_id) {
+    global $module;
 	$dagList = array();
 	$sql = "SELECT group_id,group_name
 		FROM redcap_data_access_groups
 		WHERE project_id=$project_id";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
 		$dagList[$row['group_id']] = $row['group_name'];
 	}
@@ -44,11 +47,12 @@ function getDAGList($project_id) {
 }
 
 function getRecordList($project_id,$recordField) {
+    global $module;
 	$recordList = array();
 	$sql = "SELECT DISTINCT(record)
         FROM redcap_data
         WHERE project_id=$project_id";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	//$resultCount = 0;
 	while ($row = db_fetch_assoc($result)) {
 		$recordList[$row['record']] = $row['record'];
@@ -58,12 +62,13 @@ function getRecordList($project_id,$recordField) {
 }
 
 function getRoleAccess($roleID) {
+    global $module;
 	$accessList = array();
 
 	$sql = "SELECT data_entry
         FROM redcap_user_roles
         WHERE role_id=$roleID";
-	$dataEntry = db_result(db_query($sql),0);
+	$dataEntry = db_result($module->query($sql),0);
 	$accessList[$roleID] = processDataEntry($dataEntry);
 
 	return $accessList;
@@ -119,6 +124,7 @@ function getBackgroundColor($userAssignment,$suggestedAssignment) {
 }
 
 function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
+    global $module;
 	$returnArray = array();
 	$sql = "SELECT d2.value
 			FROM redcap_data d 
@@ -128,7 +134,7 @@ function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
 			AND d.field_name='user_name'
 			AND d.value='$userID'
 			LIMIT 1";
-	$roleID = db_result(db_query($sql),0);
+	$roleID = db_result($module->query($sql),0);
 	//TODO Need to include checks at some point that the person is not expired and has an active role in the repeating instrument
 	if ($roleID != "") {
 		$roleData = array();
@@ -136,7 +142,7 @@ function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
 		FROM redcap_data
 		WHERE project_id=$roleProjectID
 		AND record='$roleID'";
-		$result = db_query($sql2);
+		$result = $module->query($sql2);
 		while ($row = db_fetch_assoc($result)) {
 			$roleData[$row['field_name']] = $row['value'];
 		}
@@ -149,36 +155,40 @@ function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
 }
 
 function getProjectName($projectID) {
+    global $module;
 	$sql = "SELECT app_title 
             FROM redcap_projects
             WHERE project_id=$projectID";
-	return db_result(db_query($sql),0);
+	return db_result($module->query($sql),0);
 }
 
 function getRoleName($roleID) {
+    global $module;
 	$returnString = "";
 	$sql = "SELECT role_name
 	FROM redcap_user_roles
 	WHERE role_id='$roleID'";
-	$returnString = db_result(db_query($sql),0);
+	$returnString = db_result($module->query($sql),0);
 	return $returnString;
 }
 
 function getDAGName($dagID) {
+    global $module;
 	$returnString = "";
 	$sql = "SELECT group_name
 	FROM redcap_data_access_groups
 	WHERE group_id='$dagID'";
-	$returnString = db_result(db_query($sql),0);
+	$returnString = db_result($module->query($sql),0);
 	return $returnString;
 }
 
 function getRolesWithName($roleID) {
+    global $module;
 	$roleList = array();
 	$sql = "SELECT project_id,role_id,role_name
 			FROM redcap_user_roles
 			WHERE role_name = (SELECT role_name FROM redcap_user_roles WHERE role_id=$roleID)";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
 		$roleList[$row['project_id']] = $row['role_id'];
 	}
@@ -186,11 +196,12 @@ function getRolesWithName($roleID) {
 }
 
 function updateUserRole($userIDs,$roleID,$projectID) {
+    global $module;
 	$returnArray = array();
 	if ($projectID != "" && is_numeric($projectID)) {
 		if ($roleID != "" && is_numeric($roleID)) {
 			$sql = "SELECT * FROM redcap_user_roles WHERE project_id='".db_real_escape_string($projectID)."' AND role_id='".db_real_escape_string($roleID)."'";
-			$roleInfo = db_fetch_assoc(db_query($sql), 0);
+			$roleInfo = db_fetch_assoc($module->query($sql), 0);
 
 			$updateFields = "";
 			$insertFields = "";
@@ -223,13 +234,14 @@ function updateUserRole($userIDs,$roleID,$projectID) {
 			VALUES ($insertFields,'" . db_real_escape_string($userID) . "')
 			ON DUPLICATE KEY UPDATE $updateFields";
 			//echo "$insertsql<br/>";
-			$returnArray[] = db_query($insertsql);
+			$returnArray[] = $module->query($insertsql);
 		}
 	}
 	return $returnArray;
 }
 
 function updateUserDAG($userIDs,$dagID,$projectID) {
+    global $module;
 	$returnArray = array();
 	if ($projectID != "" && is_numeric($projectID)) {
 		$dagValue = "NULL";
@@ -244,7 +256,7 @@ function updateUserDAG($userIDs,$dagID,$projectID) {
 			$insertsql = "INSERT INTO redcap_user_rights ($insertColumns,username)
 			VALUES ($insertFields,'$userID')
 			ON DUPLICATE KEY UPDATE $updateFields";
-			$returnArray[] = db_query($insertsql);
+			$returnArray[] = $module->query($insertsql);
 		}
 	}
 	return $returnArray;
@@ -270,6 +282,7 @@ function getFullProjectList($projectIDs, $fieldsWithProjects) {
 }
 
 function getProjectWithRoleName($roleID) {
+    global $module;
 	$projectList = array();
 
 	$sql = "SELECT d.role_id, d.project_id,d2.app_title
@@ -277,7 +290,7 @@ function getProjectWithRoleName($roleID) {
 			LEFT JOIN redcap_projects d2
 				ON d.project_id=d2.project_id
 			WHERE d.role_name=(SELECT role_name FROM redcap_user_roles WHERE role_id=$roleID)";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	//echo "$sql<br/>";
 	while ($row = db_fetch_assoc($result)) {
 		$projectList[$row['project_id']] = $row['app_title'];
@@ -286,7 +299,7 @@ function getProjectWithRoleName($roleID) {
 }
 
 function userAssignedProjects($userID) {
-	global $projectListing;
+	global $projectListing,$module;
 	$returnArray = array();
 	$roleNamesFound = array();
 	$sql = "SELECT project_id,role_id,group_id
@@ -294,7 +307,7 @@ function userAssignedProjects($userID) {
 			WHERE username='$userID'
 			AND project_id IN ('".implode("','",$projectListing)."')";
 	//echo "$sql<br/>";
-	$result = db_query($sql);
+	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
 		$returnArray[$row['project_id']]['role'] = $row['role_id'];
 		$returnArray[$row['project_id']]['dag'] = $row['group_id'];
