@@ -13,6 +13,7 @@ function getUserList($projectList) {
 		JOIN redcap_user_information d2
 			ON d.username = d2.username
 		WHERE d.project_id IN (".implode(",",$projectList).")";
+	//echo "$sql<br/>";
 	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
 		$userlist[$row['username']] = $row['name'];
@@ -125,17 +126,46 @@ function getBackgroundColor($userAssignment,$suggestedAssignment) {
 
 function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
     global $module;
+    $accessProject = new \Project($accessProjectID);
+    $accessEventID = $accessProject->firstEventId;
 	$returnArray = array();
-	$sql = "SELECT d2.value
+	/*$sql = "SELECT d2.value
 			FROM redcap_data d 
 			JOIN redcap_data d2
-				ON d.project_id=d2.project_id AND d.event_id=d2.event_id AND d.record=d2.record AND d2.field_name='role'
+				ON d.project_id=d2.project_id AND d.event_id=d2.event_id AND d.record=d2.record AND d2.field_name='custom_role'
 			WHERE d.project_id=$accessProjectID
 			AND d.field_name='user_name'
 			AND d.value='$userID'
 			LIMIT 1";
-	$roleID = db_result($module->query($sql),0);
-	//TODO Need to include checks at some point that the person is not expired and has an active role in the repeating instrument
+	$roleID = db_result($module->query($sql),0);*/
+	$sql = "SELECT record
+	    FROM redcap_data
+	    WHERE project_id=$accessProjectID
+	    AND field_name='user_name'
+	    AND value='$userID'";
+	$recordID = db_result(db_query($sql),0);
+
+    $returnData = \REDCap::getData($accessProjectID, 'array', array($recordID));
+
+    $roleID = "";
+    foreach ($returnData[$recordID] as $event_id => $eventData) {
+        if ($event_id == "repeat_instances") {
+            foreach ($eventData as $instanceEvent => $formData) {
+                foreach ($formData['user_modifications'] as $instanceID => $instanceData) {
+                    if ($instanceData['role_v2'] != "") {
+                        if ($instanceData['expire_date'] != "" && strtotime($instanceData['expire_date']) < time()) continue;
+                        $roleID = $instanceData['role_v2'];
+                    }
+                }
+            }
+        }
+        else {
+            if ($eventData['custom_role'] != "") {
+                $roleID = $eventData['custom_role'];
+            }
+        }
+    }
+
 	if ($roleID != "") {
 		$roleData = array();
 		$sql2 = "SELECT field_name,value
@@ -146,9 +176,21 @@ function getSuggestedAssignments($userID, $accessProjectID, $roleProjectID) {
 		while ($row = db_fetch_assoc($result)) {
 			$roleData[$row['field_name']] = $row['value'];
 		}
+
+		//TODO Make sure the modification date on the instances are in order, need to take most recent modification over others
 		if ($roleData['role_active'] == "1") {
-			$returnArray['roles'] = json_decode($roleData['suggested_roles'],true);
-			$returnArray['dags'] = json_decode($roleData['suggested_dags'],true);
+		    $suggestAssignments = json_decode($roleData['project_role'],true);
+
+		    foreach ($suggestAssignments as $projectID => $suggested) {
+		        if ($suggested['role'] != "") {
+		            $returnArray['roles'][$projectID] = $suggested['role'];
+                }
+                if ($suggested['dag'] != "") {
+                    $returnArray['dags'][$projectID] = $suggested['dag'];
+                }
+            }
+			/*$returnArray['roles'] = json_decode($roleData['suggested_roles'],true);
+			$returnArray['dags'] = json_decode($roleData['suggested_dags'],true);*/
 		}
 	}
 	return $returnArray;

@@ -22,7 +22,7 @@ global $projectListing,$module;
 $module = new \Vanderbilt\MassUserRightsExternalModule\MassUserRightsExternalModule($projectID);
 $projectListing = getFullProjectList($module->getProjectSetting('role-projects'),$module->getProjectSetting('field-projects'));
 
-if ($projectID != "") {
+if ($projectID != "" && !empty($projectListing)) {
 	//global $redcap_version;
     global $Proj;
 	//require_once(dirname(dirname(dirname(__FILE__)))."/redcap_v$redcap_version/Config/init_project.php");
@@ -140,6 +140,7 @@ if ($projectID != "") {
 		$accessProjectID = $module->getProjectSetting('access-project');
 		$roleProjectID = $module->getProjectSetting('role-project');
 		$suggestedAssignments = getSuggestedAssignments($userID,$accessProjectID,$roleProjectID);
+
 		foreach ($suggestedAssignments['roles'] as $projectID => $roleID) {
 		    updateUserRole(array($userID),$roleID,$projectID);
         }
