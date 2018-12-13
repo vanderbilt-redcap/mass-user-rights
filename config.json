@@ -20,7 +20,7 @@
   "links": {
     "project": [
       {
-        "name": "View/Edit User Roles",
+        "name": "Mass-assign User Rights",
         "icon": "report",
         "url": "assign_roles.php",
         "access": "design"

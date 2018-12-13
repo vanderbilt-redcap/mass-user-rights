@@ -27,30 +27,8 @@ if ($projectID != "" && !empty($projectListing)) {
     global $Proj;
 	//require_once(dirname(dirname(dirname(__FILE__)))."/redcap_v$redcap_version/Config/init_project.php");
 	require_once APP_PATH_DOCROOT . 'ProjectGeneral/header.php';
-	/*$HtmlPage = new HtmlPage();
-	$HtmlPage->PrintHeaderExt();*/
 
 	$userList = getUserList($projectListing);
-
-	//$dagList = getDAGList($projectID);
-	//$roleList = getRoleList($projectID);
-
-	/*$userProjectID = $module->getRightsProjectID();
-	$userProject = new \Project($userProjectID);
-	$event_id = $module->getFirstEventId($userProjectID);
-
-	$groupData = \REDCap::getData($userProjectID, 'array', "", array(), $event_id, array(), false, false, false, "([" . $module->getProjectSetting('project-field') . "] = '$projectID')");
-
-	$groupList = array();
-	$usersByGroup = array();
-	foreach ($groupData as $group) {
-	    if ($group[$event_id][$module->getProjectSetting('group-field')] != "" && !in_array($group[$event_id][$module->getProjectSetting('group-field')],$groupList)) {
-	        $groupList[$group[$event_id][$module->getProjectSetting('group-field')]] = $group[$event_id][$module->getProjectSetting('group-field')];
-        }
-        $usersByGroup[$group[$event_id][$module->getProjectSetting('group-field')]][] = $group[$event_id][$module->getProjectSetting('user-field')];
-    }*/
-
-	//$rightsModule = new \Vanderbilt\UserRightsByRecordExternalModule\UserRightsByRecordExternalModule($projectID);
 
 	echo "<table class='table table-bordered'><tr><th>Select a User to Apply Rights</th></tr>
     <form action='".$module->getUrl('assign_roles.php')."' method='POST'>
@@ -65,53 +43,22 @@ if ($projectID != "" && !empty($projectListing)) {
 		</div>
 	</td></tr></form></table>";
 
-	if (isset($_POST['update_rights']) && $_POST['update_rights'] != "") {
-	    $roleAssigns = array();
-
-		if (is_array($_POST['select_user'])) {
-			$userIDs = $_POST['select_user'];
-		}
-		else {
-			$userIDs = array($_POST['select_user']);
-		}
-
-	    $projectIDs = $_POST['projectid'];
-	    if (is_array($_POST['add_new_right_role'])) {
-			$roleAssigns = $_POST['add_new_right_role'];
-		}
-		$resultsArray = array();
-	    foreach ($roleAssigns as $index => $roleAssign) {
-	        if ($roleAssign == "" || !is_numeric($roleAssign)) continue;
-	        $roleList = getRolesWithName($roleAssign);
-	        foreach ($roleList as $projectID => $roleID) {
-	            if (isset($projectIDs[$index][$projectID]) && $projectIDs[$index][$projectID] == $projectID) {
-	                $resultsArray = updateUserRole($userIDs,$roleID,$projectID);
-	                $negativeResult = false;
-	                foreach ($resultsArray as $result) {
-	                    if ($result != "1") {
-	                        $negativeResult = true;
-                        }
-                    }
-                    if ($negativeResult) {
-						echo "Had a negative result assigning user to <strong>" . getRoleList($projectID)[$roleID] . "</strong> on project <strong>" . getProjectName($projectID) . "</strong>.<br/>";
-					}
-					else {
-						echo "Successfully assigned user to <strong>" . getRoleList($projectID)[$roleID] . "</strong> on project <strong>" . getProjectName($projectID) . "</strong>.<br/>";
-                    }
-                }
-            }
-        }
-	}
 	//TODO If we go back to allowing assignment of multiple users at once, need to rewrite all 'userID' stuff below to behave as the 'userIDs' check above, and do escape strings in the functions instead
-	elseif (isset($_POST['load_user']) && $_POST['select_user'] != "") {
+	if (isset($_POST['load_user']) && $_POST['select_user'] != "") {
 		$userID = db_real_escape_string($_POST['select_user']);
 		loadUser($userID);
 	}
 	elseif (isset($_POST['submit_single']) && $_POST['submit_single'] != "" && $_POST['select_user'] != "") {
 	    $postProjectID = $_POST['submit_single'];
 	    $userID = db_real_escape_string($_POST['select_user']);
-	    updateUserRole(array($userID),$_POST['role_select_'.$postProjectID],$postProjectID);
-	    updateUserDAG(array($userID),$_POST['dag_select_'.$postProjectID],$postProjectID);
+	    if ($_POST['role_select_'.$postProjectID] == 'remove_role') {
+            $deletesql = "DELETE FROM redcap_user_rights WHERE username='" . db_real_escape_string($userID) . "' AND project_id=".db_real_escape_string($postProjectID);
+            $result = $module->query($deletesql);
+        }
+        else {
+            updateUserRole(array($userID), $_POST['role_select_' . $postProjectID], $postProjectID);
+            updateUserDAG(array($userID),$_POST['dag_select_'.$postProjectID],$postProjectID);
+        }
 
 		loadUser($userID);
     }
@@ -128,7 +75,13 @@ if ($projectID != "" && !empty($projectListing)) {
             elseif (strpos($postName,"role_select_") !== false) {
 		        $projectID = explode("_",$postName)[2];
 		        if ($projectID != "" && $userID != "") {
-		            updateUserRole(array($userID),$postData,$projectID);
+		            if ($postData == 'remove_role') {
+                        $deletesql = "DELETE FROM redcap_user_rights WHERE username='" . db_real_escape_string($userID) . "' AND project_id=".db_real_escape_string($projectID);
+                        $result = $module->query($deletesql);
+                    }
+                    else {
+                        updateUserRole(array($userID), $postData, $projectID);
+                    }
                 }
             }
         }
@@ -154,23 +107,23 @@ if ($projectID != "" && !empty($projectListing)) {
 function loadUser($userID) {
     global $module;
 	$hiddenFields = array('select_user'=>$userID);
-	drawRightsTables($hiddenFields,$module->getUrl('assign_roles.php'));
+	drawRightsTables($userID,$hiddenFields,$module->getUrl('assign_roles.php'));
 	$userAssignments = userAssignedProjects($userID);
 
 	$accessProjectID = $module->getProjectSetting('access-project');
 	$roleProjectID = $module->getProjectSetting('role-project');
 	$suggestedAssignments = getSuggestedAssignments($userID,$accessProjectID,$roleProjectID);
 
-	if (!empty($userAssignments)) {
+
 		echo "<script>
             $(document).ready(function() {
                 ".generatePrefill($userAssignments,$suggestedAssignments)."
                 });
              </script>";
-	}
+
 }
 
-function drawRightsTables($hiddenFields,$destination)
+function drawRightsTables($userID,$hiddenFields,$destination)
 {
     global $projectListing;
 	$projectNames = array();
@@ -187,7 +140,7 @@ function drawRightsTables($hiddenFields,$destination)
 	foreach ($hiddenFields as $fieldName => $fieldValue) {
 		echo "<input type='hidden' value='$fieldValue' name='$fieldName' />";
 	}
-	echo "<div style='width:100%;font-weight:bold;text-align:center;font-size:120%;'>User Roles Assignments</div>
+	echo "<div style='width:100%;font-weight:bold;text-align:center;font-size:120%;'>$userID's User Roles Assignments</div>
     <table id='submit_users_buttons1' class='table table-bordered' style='width:100%;font-weight:normal;margin-bottom:0;'>
         <tr>
             <td><input type='submit' name='submit_all' value='Submit All Projects'></td>
@@ -196,6 +149,9 @@ function drawRightsTables($hiddenFields,$destination)
     </table>
     <table id='user_roles_table' class='table table-bordered' style='width:100%;font-weight:normal;margin-bottom:0;'>
     <tr>
+        <th>
+            Project ID
+        </th>
         <th>
             REDCap Project
         </th>
@@ -210,7 +166,8 @@ function drawRightsTables($hiddenFields,$destination)
     </tr>";
 	foreach ($projectListing as $projectID) {
 	    echo "<tr>
-            <td>".$projectNames[$projectID]."</td>
+            <td>".$projectID."</td>
+            <td><a href='".APP_PATH_WEBROOT_FULL."redcap_v".REDCAP_VERSION."/UserRights/index.php?pid=$projectID' target='_blank'>".$projectNames[$projectID]."</a></td>
             <td id='dag_div_$projectID'>";
 	        if (!empty($dagsByProject[$projectID])) {
 	            echo "<select class='picklist' id='dag_select_$projectID' name='dag_select_$projectID'><option value=''>No DAG</option>";
@@ -222,7 +179,7 @@ function drawRightsTables($hiddenFields,$destination)
 	        echo "</td>
             <td id='role_div_$projectID'>";
 	        if (!empty($rolesByProject[$projectID])) {
-	            echo "<select class='picklist' id='role_select_$projectID' name='role_select_$projectID'><option value=''>No Role</option>";
+	            echo "<select class='picklist' id='role_select_$projectID' name='role_select_$projectID'><option value='remove_role'>Remove from Project</option><option value=''>No Role</option>";
 	            foreach ($rolesByProject[$projectID] as $roleID => $roleName) {
 	                echo "<option value='$roleID'>$roleName</option>";
                 }
