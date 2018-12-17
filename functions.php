@@ -330,8 +330,22 @@ function getFullProjectList($projectIDs, $fieldsWithProjects) {
 			}
 		}
 	}
-	sort($projectListing);
+	$projectListing = sortProjectsByName($projectListing);
+
 	return array_unique($projectListing);
+}
+
+function sortProjectsByName($projectIDs) {
+    $returnArray = array();
+    $sql = "SELECT project_id,app_title
+        FROM redcap_projects
+        WHERE project_id IN ('".(implode("','",$projectIDs))."')
+        ORDER BY app_title";
+    $result = db_query($sql);
+    while ($row = db_fetch_assoc($result)) {
+        $returnArray[] = $row['project_id'];
+    }
+    return $returnArray;
 }
 
 function getProjectWithRoleName($roleID) {
