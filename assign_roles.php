@@ -7,7 +7,6 @@
         margin-bottom:5px;
     }
 </style>
-
 <?php
 /**
  * Created by PhpStorm.
@@ -16,6 +15,11 @@
  * Time: 5:38 PM
  */
 require_once("base.php");
+?>
+
+<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/css/select2.min.css' />
+
+<?php
 $projectID = $_GET['pid'];
 
 global $projectListing,$module;
@@ -34,7 +38,7 @@ if ($projectID != "" && !empty($projectListing)) {
     <form action='".$module->getUrl('assign_roles.php')."' method='POST'>
         <tr><td>
         <div id='user_div'>
-        <select name='select_user'>";
+        <select class='select2-drop' name='select_user'>";
 	foreach ($userList as $userName => $realName) {
 		echo "<option value='$userName' ".($_POST['select_user'] == $userName ? "selected" : "").">$realName ($userName)</option>";
 	}
@@ -170,7 +174,7 @@ function drawRightsTables($userID,$hiddenFields,$destination)
             <td><a href='".APP_PATH_WEBROOT_FULL."redcap_v".REDCAP_VERSION."/UserRights/index.php?pid=$projectID' target='_blank'>".$projectNames[$projectID]."</a></td>
             <td id='dag_div_$projectID'>";
 	        if (!empty($dagsByProject[$projectID])) {
-	            echo "<select class='picklist' id='dag_select_$projectID' name='dag_select_$projectID'><option value=''>No DAG</option>";
+	            echo "<select class='picklist select2-drop' id='dag_select_$projectID' name='dag_select_$projectID'><option value=''>No DAG</option>";
 	            foreach ($dagsByProject[$projectID] as $dagID => $dagName) {
 	                echo "<option value='$dagID' >$dagName</option>";
                 }
@@ -179,7 +183,7 @@ function drawRightsTables($userID,$hiddenFields,$destination)
 	        echo "</td>
             <td id='role_div_$projectID'>";
 	        if (!empty($rolesByProject[$projectID])) {
-	            echo "<select class='picklist' id='role_select_$projectID' name='role_select_$projectID'><option value='remove_role'>Remove from Project</option><option value=''>No Role</option>";
+	            echo "<select class='picklist select2-drop' id='role_select_$projectID' name='role_select_$projectID'><option value='remove_role'>Remove from Project</option><option value=''>No Role</option>";
 	            foreach ($rolesByProject[$projectID] as $roleID => $roleName) {
 	                echo "<option value='$roleID'>$roleName</option>";
                 }
@@ -200,7 +204,11 @@ function drawRightsTables($userID,$hiddenFields,$destination)
 }
 
 ?>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/js/select2.min.js'></script>
 <script>
+    $(document).ready(function() {
+        $('.select2-drop').select2();
+    });
 	function checkAll(trigger,elementName) {
 		var parentClass = trigger.className;
 

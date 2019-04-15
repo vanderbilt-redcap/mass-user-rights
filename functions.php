@@ -13,7 +13,7 @@ function getUserList($projectList) {
 		JOIN redcap_user_information d2
 			ON d.username = d2.username
 		WHERE d.project_id IN (".implode(",",$projectList).")
-		ORDER BY username";
+		ORDER BY name";
 	//echo "$sql<br/>";
 	$result = $module->query($sql);
 	while ($row = db_fetch_assoc($result)) {
@@ -107,14 +107,14 @@ function generatePrefill($data,$suggestedAssignments) {
         if ($roleID != "") {
             $bgColor = getBackgroundColor($data[$project_id]['role'], $roleID);
             $roleName = getRoleName($roleID);
-            $returnString .= "$('#role_select_$project_id').parent().css('background-color','$bgColor').append('Suggested: $roleName');";
+            $returnString .= "$('#role_select_$project_id').parent().css('background-color','$bgColor').append('<br/>Suggested: $roleName');";
         }
     }
     foreach ($suggestedAssignments['dags'] as $project_id => $dagID) {
         if ($dagID != "") {
             $bgColor = getBackgroundColor($data[$project_id]['dag'], $dagID);
             $dagName = getDAGName($dagID);
-            $returnString .= "$('#dag_select_$project_id').parent().css('background-color','$bgColor').append('Suggested: $dagName');";
+            $returnString .= "$('#dag_select_$project_id').parent().css('background-color','$bgColor').append('<br/>Suggested: $dagName');";
         }
     }
 	/*foreach ($dags as $dagIndex => $dagID) {
