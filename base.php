@@ -10,6 +10,7 @@ echo "<link rel='stylesheet' href='".$module->getUrl('css/jquery-ui.min.css')."'
 	<link rel='stylesheet' href='".$module->getUrl('css/jquery-ui.theme.min.css')."'>
 	<link rel='stylesheet' href='".$module->getUrl('css/bootstrap.min.css')."'>
 	<link rel='stylesheet' href='".$module->getUrl('css/bootstrap-theme.css')."'>
+	<link rel='stylesheet' href='".$module->getUrl('DataTables/datatables.min.css')."'>
 	<link href='".$module->getUrl('css/styles.css')."' rel='stylesheet'>
 	<script src='".$module->getUrl('js/jquery.min.js')."'></script>";
 require_once('functions.php');

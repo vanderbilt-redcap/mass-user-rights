@@ -19,6 +19,7 @@ require_once("base.php");
 
 <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/css/select2.min.css' />
 
+
 <?php
 $projectID = $_GET['pid'];
 
@@ -106,6 +107,13 @@ if ($projectID != "" && !empty($projectListing)) {
         }
 		loadUser($userID);
     }
+	elseif (isset($_POST['remove_all']) && $_POST['remove_all'] != "" && $_POST['select_user'] != "") {
+        $userID = db_real_escape_string($_POST['select_user']);
+        foreach ($projectListing as $removeProjectID) {
+            $deletesql = "DELETE FROM redcap_user_rights WHERE username='" . db_real_escape_string($userID) . "' AND project_id=" . db_real_escape_string($removeProjectID);
+            $result = $module->query($deletesql);
+        }
+    }
 }
 
 function loadUser($userID) {
@@ -148,26 +156,30 @@ function drawRightsTables($userID,$hiddenFields,$destination)
     <table id='submit_users_buttons1' class='table table-bordered' style='width:100%;font-weight:normal;margin-bottom:0;'>
         <tr>
             <td><input type='submit' name='submit_all' value='Submit All Projects'></td>
+            <td><input onclick='return confirm(\"Are you sure you want to remove user from all projects?\")' type='submit' name='remove_all' value='Remove from All Projects'</td>
             <td><input type='submit' name='submit_suggest' value='Accept Suggested'></td>
         </tr>
     </table>
     <table id='user_roles_table' class='table table-bordered' style='width:100%;font-weight:normal;margin-bottom:0;'>
-    <tr>
-        <th>
-            Project ID
-        </th>
-        <th>
-            REDCap Project
-        </th>
-        <th>
-            Data Access Group
-        </th>
-        <th>
-            REDCap User Role
-        </th>
-        <th style='padding-left:0;padding-right:0;'>
-        </th>
-    </tr>";
+    <thead>
+        <tr>
+            <th>
+                Project ID
+            </th>
+            <th>
+                REDCap Project
+            </th>
+            <th>
+                Data Access Group
+            </th>
+            <th>
+                REDCap User Role
+            </th>
+            <th style='padding-left:0;padding-right:0;'>
+            </th>
+        </tr>
+    </thead>
+    <tbody>";
 	foreach ($projectListing as $projectID) {
 	    echo "<tr>
             <td>".$projectID."</td>
@@ -181,22 +193,24 @@ function drawRightsTables($userID,$hiddenFields,$destination)
 	            echo "</select>";
             }
 	        echo "</td>
-            <td id='role_div_$projectID'>";
+            <td id='role_div_$projectID'>
+                <select class='picklist select2-drop' id='role_select_$projectID' name='role_select_$projectID'><option value='remove_role'>Remove from Project</option><option value=''>No Role</option>";
+
 	        if (!empty($rolesByProject[$projectID])) {
-	            echo "<select class='picklist select2-drop' id='role_select_$projectID' name='role_select_$projectID'><option value='remove_role'>Remove from Project</option><option value=''>No Role</option>";
 	            foreach ($rolesByProject[$projectID] as $roleID => $roleName) {
 	                echo "<option value='$roleID'>$roleName</option>";
                 }
-	            echo "</select>";
             }
+            echo "</select>";
             echo "</td>
             <td style='padding-left:0;padding-right:0;'><button type='submit' name='submit_single' value='$projectID'>Submit<br/>Project</button></td>";
 	    echo "</tr>";
     }
-    echo "</table>
+    echo "</tbody></table>
     <table id='submit_users_buttons1' class='table table-bordered' style='width:100%;font-weight:normal;'>
         <tr>
             <td><input type='submit' name='submit_all' value='Submit All Projects'></td>
+            <td><input onclick='return confirm(\"Are you sure you want to remove user from all projects?\")' type='submit' name='remove_all' value='Remove from All Projects'</td>
             <td><input type='submit' name='submit_suggest' value='Accept Suggested'></td>
         </tr>
     </table>
@@ -205,9 +219,11 @@ function drawRightsTables($userID,$hiddenFields,$destination)
 
 ?>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/js/select2.min.js'></script>
+<script src='<?= $module->getUrl('DataTables/datatables.js'); ?>'></script>
 <script>
     $(document).ready(function() {
         $('.select2-drop').select2();
+        $('#user_roles_table').DataTable();
     });
 	function checkAll(trigger,elementName) {
 		var parentClass = trigger.className;
